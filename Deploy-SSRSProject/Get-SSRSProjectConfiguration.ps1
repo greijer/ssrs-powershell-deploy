@@ -48,5 +48,6 @@ return New-Object -TypeName PSObject -Property @{
 	Folder = Normalize-SSRSFolder -Folder $Config.Options.TargetFolder
 	DataSourceFolder = Normalize-SSRSFolder -Folder $Config.Options.TargetDataSourceFolder
 	DataSetFolder = Normalize-SSRSFolder -Folder $Config.Options.TargetDataSetFolder
+	OutputPath = $Config.Options.OutputPath
 	OverwriteDataSources = $OverwriteDataSources
 }

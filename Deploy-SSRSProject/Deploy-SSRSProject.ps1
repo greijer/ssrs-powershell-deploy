@@ -265,6 +265,7 @@ if ($PSCmdlet.ParameterSetName -eq 'Configuration') {
 	$Folder = $Config.Folder
 	$DataSourceFolder = $Config.DataSourceFolder
 	$DataSetFolder = $Config.DataSetFolder
+	$OutputPath = $Config.OutputPath
 	$OverwriteDataSources = $Config.OverwriteDataSources
 }
 
@@ -333,8 +334,8 @@ $Project.SelectNodes('Project/Reports/ResourceProjectItem') |
 
 $Project.SelectNodes('Project/Reports/ProjectItem') |
 	ForEach-Object {
-		$RdlPath = $ProjectRoot | Join-Path -ChildPath $_.FullPath
-		New-SSRSReport -Proxy $Proxy -RdlPath $RdlPath
+		$CompiledRdlPath = $ProjectRoot | Join-Path -ChildPath $OutputPath | join-path -ChildPath $_.FullPath
+		New-SSRSReport -Proxy $Proxy -RdlPath $CompiledRdlPath
 	}
 
 Write-Verbose "Done."
