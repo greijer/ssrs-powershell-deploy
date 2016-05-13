@@ -13,7 +13,7 @@ param (
 		Mandatory=$true)]
 	[string]
 	$Configuration,
-
+	
 	[parameter(
 		ParameterSetName='Target',
 		Mandatory=$true)]
@@ -39,10 +39,12 @@ param (
 	[string]
 	$DataSetFolder,
 
-	[parameter(ParameterSetName='Target')]
+	[parameter()]
 	[switch]
 	$OverwriteDataSources,
 
+	[parameter(Mandatory=$false)] [string[]] $DataSourceConnections, # key value pair array: DataSourceName1, ConnectionString1, DataSourceName2, ConnectionString2 ... 
+	
 	[System.Management.Automation.PSCredential]
 	$Credential
 )
@@ -103,10 +105,9 @@ function New-SSRSDataSource (
 	$Proxy,
 	[string]$RdsPath,
 	[string]$Folder,
-	[switch]$Overwrite
+	[bool]$Overwrite
 ) {
 	Write-Verbose "Processing DataSource '$RdsPath'..."
-
 	$Folder = Normalize-SSRSFolder -Folder $Folder
 
 	[xml]$Rds = Get-Content -Path $RdsPath
@@ -114,6 +115,23 @@ function New-SSRSDataSource (
 
 	$Definition = New-Object -TypeName SSRS.ReportingService2010.DataSourceDefinition
 	$Definition.ConnectString = $ConnProps.ConnectString
+	
+	if ($DataSourceConnections.count -gt 0)
+	{
+		write-verbose "DataSourceConnections specified, replacing matching connections"
+		
+		for ($i=0; $i -lt $DataSourceConnections.count; $i+=2)
+		{
+			$DataSourceName = $DataSourceConnections[$i];
+			$DataSourceConnectionString = $DataSourceConnections[$i+1];
+			if ($DataSourceName -eq $Rds.RptDataSource.Name)
+			{
+				write-verbose ("Using custom DataSource: {0}. ConnectionString: {1}" -f $DataSourceName, $DataSourceConnectionString)
+				$Definition.ConnectString = $DataSourceConnectionString;
+			}
+		}
+	}
+	
 	$Definition.Extension = $ConnProps.Extension
 	if ([Convert]::ToBoolean($ConnProps.IntegratedSecurity)) {
 		$Definition.CredentialRetrieval = 'Integrated'
@@ -266,8 +284,15 @@ if ($PSCmdlet.ParameterSetName -eq 'Configuration') {
 	$DataSourceFolder = $Config.DataSourceFolder
 	$DataSetFolder = $Config.DataSetFolder
 	$OutputPath = $Config.OutputPath
-	$OverwriteDataSources = $Config.OverwriteDataSources
+	$OverwriteDataSourcesInConfig = $Config.OverwriteDataSources
 }
+
+if (-not $OverwriteDataSources) #from script parameter
+{
+	$OverwriteDataSources = $OverwriteDataSourcesInConfig
+}
+write-verbose ("Overwrite datasources (in project config): {0}" -f $OverwriteDataSourcesInConfig)
+write-verbose ("Overwrite datasources (in effect): {0}" -f $OverwriteDataSources)
 
 $Folder = Normalize-SSRSFolder -Folder $Folder
 $DataSourceFolder = Normalize-SSRSFolder -Folder $DataSourceFolder
@@ -285,7 +310,7 @@ $DataSourcePaths = @{}
 $Project.SelectNodes('Project/DataSources/ProjectItem') |
 	ForEach-Object {
 		$RdsPath = $ProjectRoot | Join-Path -ChildPath $_.FullPath
-		$DataSource = New-SSRSDataSource -Proxy $Proxy -RdsPath $RdsPath -Folder $DataSourceFolder
+		$DataSource = New-SSRSDataSource -Proxy $Proxy -RdsPath $RdsPath -Folder $DataSourceFolder -Overwrite $OverwriteDataSources
 		$DataSourcePaths.Add($DataSource.Name, $DataSource.Path)
 	}
 
